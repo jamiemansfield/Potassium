@@ -38,12 +38,28 @@ import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.Opcodes;
 
-import java.util.Objects;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * An {@link Environment} configured for Minecraft Classic.
  */
 public class MinecraftClassicEnvironment extends Environment {
+
+    // Minecraft Classic uses ObjectOutputStream for saving levels
+    // This meant some classes couldn't be obfuscated
+    // Potentially changing fields could break compatibility
+    // At the Potassium level, compatibility SHOULD NOT BREAK!
+    private static final Set<String> BLACKLIST = new HashSet<>();
+
+    static {
+        // Common
+        BLACKLIST.add("com/mojang/minecraft/level/Level");
+
+        // Client
+
+        // Server
+    }
 
     private final Side side;
 
@@ -62,33 +78,67 @@ public class MinecraftClassicEnvironment extends Environment {
         // Common mappers
         this.registerMapper(new FieldGeneratedMapper(this, new FieldGeneratedMapper.Configuration() {
             {
+                // Blacklist classes that weren't obfuscated
+                this.classBlacklist.addAll(BLACKLIST);
+
                 // Field mappings
                 this.descToName.put("Lcom/mojang/minecraft/level/Level;", "level");
             }
         }));
 
-        if (this.side == Side.CLIENT) {
-            // Find the Minecraft class
-            final FieldDescFinder descFinder = new FieldDescFinder("minecraft");
-            this.sources.get("com/mojang/minecraft/MinecraftApplet").accept(descFinder);
-            final String minecraft = descFinder.fieldDesc != null ? descFinder.fieldDesc : "com/mojang/minecraft/l"; // Value in 0.30
+        // Map the ParticleEngine class (+ container package)
+        {
+            // Find the ParticleEngine class
+            final FieldDescFinder descFinder = new FieldDescFinder("particleEngine");
+            this.sources.get("com/mojang/minecraft/level/Level").accept(descFinder);
 
-            // Map Minecraft class
-            this.mappings.getOrCreateClassMapping(minecraft.substring(1, minecraft.length() - 1))
-                    .setDeobfuscatedName("com/mojang/minecraft/Minecraft");
+            if (descFinder.fieldDesc != null) {
+                final String particleEngineDesc = descFinder.fieldDesc;
+                final String particleEngineName = particleEngineDesc.substring(1, particleEngineDesc.length() - 1);
+
+                // Map ParticleEngine
+                this.mappings.getOrCreateClassMapping(particleEngineName)
+                        .setDeobfuscatedName("com/mojang/minecraft/particle/ParticleEngine");
+            }
+        }
+
+        if (this.side == Side.CLIENT) {
+            // Map the Minecraft class
+            {
+                // Find the Minecraft class
+                final FieldDescFinder descFinder = new FieldDescFinder("minecraft");
+                this.sources.get("com/mojang/minecraft/MinecraftApplet").accept(descFinder);
+
+                if (descFinder.fieldDesc != null) {
+                    final String minecraftDesc = descFinder.fieldDesc;
+                    final String minecraftName = minecraftDesc.substring(1, minecraftDesc.length() - 1);
+
+                    // Map the class to com.mojang.minecraft.Minecraft
+                    this.mappings.getOrCreateClassMapping(minecraftName)
+                            .setDeobfuscatedName("com/mojang/minecraft/Minecraft");
+
+                    // Map fields
+                    this.registerMapper(new FieldGeneratedMapper(this, new FieldGeneratedMapper.Configuration() {
+                        {
+                            // Blacklist classes that weren't obfuscated
+                            this.classBlacklist.addAll(BLACKLIST);
+
+                            // Field mappings
+                            this.descToName.put(minecraftDesc, "minecraft");
+                        }
+                    }));
+                }
+            }
 
             // Field Generated Mapper
             this.registerMapper(new FieldGeneratedMapper(this, new FieldGeneratedMapper.Configuration() {
                 {
-                    // Minecraft Classic uses ObjectOutputStream for saving levels
-                    // This meant some classes couldn't be obfuscated
-                    // Potentially changing fields could break compatibility
-                    // At the Potassium level, compatibility SHOULD NOT BREAK!
-                    this.classBlacklist.add("com/mojang/minecraft/level/Level");
+                    // Blacklist classes that weren't obfuscated
+                    this.classBlacklist.addAll(BLACKLIST);
 
                     // Field mappings
-                    this.descToName.put(minecraft, "minecraft");
                     this.descToName.put("Lcom/mojang/minecraft/MinecraftApplet;", "applet");
+                    this.descToName.put("Lcom/mojang/minecraft/player/Player;", "player");
                 }
             }));
         }
@@ -97,11 +147,8 @@ public class MinecraftClassicEnvironment extends Environment {
             // Field Generated Mapper
             this.registerMapper(new FieldGeneratedMapper(this, new FieldGeneratedMapper.Configuration() {
                 {
-                    // Minecraft Classic uses ObjectOutputStream for saving levels
-                    // This meant some classes couldn't be obfuscated
-                    // Potentially changing fields could break compatibility
-                    // At the Potassium level, compatibility SHOULD NOT BREAK!
-                    this.classBlacklist.add("com/mojang/minecraft/level/Level");
+                    // Blacklist classes that weren't obfuscated
+                    this.classBlacklist.addAll(BLACKLIST);
 
                     // Field mappings
                     this.descToName.put("Lcom/mojang/minecraft/server/MinecraftServer;", "server");
@@ -124,7 +171,7 @@ public class MinecraftClassicEnvironment extends Environment {
         @Override
         public FieldVisitor visitField(int access, String name, String desc, String signature, Object value) {
             // Check if this is the field
-            if (Objects.equals(name, this.fieldName)) {
+            if (name.startsWith(this.fieldName)) {
                 this.fieldDesc = desc;
             }
 
