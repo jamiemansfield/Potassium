@@ -17,11 +17,14 @@ dependencies {
     // Common
     compile 'com.google.guava:guava:22.0'
 
+    // CLI
+    compile 'net.sf.jopt-simple:jopt-simple:5.0.3'
+
     // Bytecode Analysis
     compile 'org.ow2.asm:asm-debug-all:5.0.3'
 
     // Mapping IO
-    compile 'me.jamiemansfield:lorenz:0.0.1-SNAPSHOT'
+    compile 'me.jamiemansfield:lorenz:0.0.1-20180218.000622-23'
 }
 
 processResources {
