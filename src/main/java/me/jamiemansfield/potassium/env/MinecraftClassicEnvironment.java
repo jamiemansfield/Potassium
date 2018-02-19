@@ -50,13 +50,17 @@ public class MinecraftClassicEnvironment extends Environment {
     // This meant some classes couldn't be obfuscated
     // Potentially changing fields could break compatibility
     // At the Potassium level, compatibility SHOULD NOT BREAK!
-    private static final Set<String> BLACKLIST = new HashSet<>();
+    private static final Set<String> CLASS_BLACKLIST = new HashSet<>();
+    // The Minecraft Classic client bundles some libs, they should not
+    // be touched!
+    private static final Set<String> PACKAGE_BLACKLIST = new HashSet<>();
 
     static {
         // Common
-        BLACKLIST.add("com/mojang/minecraft/level/Level");
+        CLASS_BLACKLIST.add("com/mojang/minecraft/level/Level");
 
         // Client
+        PACKAGE_BLACKLIST.add("de/jarnbjo");
 
         // Server
     }
@@ -79,7 +83,8 @@ public class MinecraftClassicEnvironment extends Environment {
         this.registerMapper(new FieldGeneratedMapper(this, new FieldGeneratedMapper.Configuration() {
             {
                 // Blacklist classes that weren't obfuscated
-                this.classBlacklist.addAll(BLACKLIST);
+                this.classBlacklist.addAll(CLASS_BLACKLIST);
+                this.packageBlacklist.addAll(PACKAGE_BLACKLIST);
 
                 // Field mappings
                 this.descToName.put("Lcom/mojang/minecraft/level/Level;", "level");
@@ -121,7 +126,8 @@ public class MinecraftClassicEnvironment extends Environment {
                     this.registerMapper(new FieldGeneratedMapper(this, new FieldGeneratedMapper.Configuration() {
                         {
                             // Blacklist classes that weren't obfuscated
-                            this.classBlacklist.addAll(BLACKLIST);
+                            this.classBlacklist.addAll(CLASS_BLACKLIST);
+                            this.packageBlacklist.addAll(PACKAGE_BLACKLIST);
 
                             // Field mappings
                             this.descToName.put(minecraftDesc, "minecraft");
@@ -134,7 +140,8 @@ public class MinecraftClassicEnvironment extends Environment {
             this.registerMapper(new FieldGeneratedMapper(this, new FieldGeneratedMapper.Configuration() {
                 {
                     // Blacklist classes that weren't obfuscated
-                    this.classBlacklist.addAll(BLACKLIST);
+                    this.classBlacklist.addAll(CLASS_BLACKLIST);
+                    this.packageBlacklist.addAll(PACKAGE_BLACKLIST);
 
                     // Field mappings
                     this.descToName.put("Lcom/mojang/minecraft/MinecraftApplet;", "applet");
@@ -148,7 +155,8 @@ public class MinecraftClassicEnvironment extends Environment {
             this.registerMapper(new FieldGeneratedMapper(this, new FieldGeneratedMapper.Configuration() {
                 {
                     // Blacklist classes that weren't obfuscated
-                    this.classBlacklist.addAll(BLACKLIST);
+                    this.classBlacklist.addAll(CLASS_BLACKLIST);
+                    this.packageBlacklist.addAll(PACKAGE_BLACKLIST);
 
                     // Field mappings
                     this.descToName.put("Lcom/mojang/minecraft/server/MinecraftServer;", "server");

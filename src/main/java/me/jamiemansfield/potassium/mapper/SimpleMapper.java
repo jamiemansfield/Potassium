@@ -32,7 +32,6 @@
 
 package me.jamiemansfield.potassium.mapper;
 
-import com.google.common.collect.Sets;
 import me.jamiemansfield.potassium.env.Environment;
 import me.jamiemansfield.potassium.jar.SourceSet;
 import org.objectweb.asm.tree.ClassNode;
@@ -47,15 +46,6 @@ import java.util.Set;
  * @param <C> The type of the mapper's configuration
  */
 public abstract class SimpleMapper<C extends SimpleMapper.Configuration> extends AbstractMapper {
-
-    private static final Set<String> BLACKLIST = Sets.newHashSet(
-            "net/minecraft/client/ClientBrandRetriever",
-            "net/minecraft/realms/",
-            "com/google/",
-            "paulscode/sound/",
-            "com/jcraft/",
-            "de/jarnbjo"
-    );
 
     protected final C configuration;
 
