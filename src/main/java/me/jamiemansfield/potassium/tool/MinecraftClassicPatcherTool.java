@@ -33,6 +33,7 @@
 package me.jamiemansfield.potassium.tool;
 
 import static java.util.Arrays.asList;
+import static org.objectweb.asm.Opcodes.ACC_PUBLIC;
 
 import joptsimple.OptionException;
 import joptsimple.OptionParser;
@@ -44,6 +45,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 
 public final class MinecraftClassicPatcherTool {
 
@@ -103,37 +105,91 @@ public final class MinecraftClassicPatcherTool {
 
         InnerClassPatcher.patchJar(clientJar, fixedClientJar, new InnerClassPatcher.Configuration() {
             {
-                // TODO: Get working
-                /*this.nameToInner.put("com/mojang/minecraft/mob/Creeper$1", new InnerClassPatcher.InnerClassConfiguration() {
+                // Minecraft Class Fixes
+                {
+                    // Fix Minecraft
                     {
-                        this.name = "<init>";
-                        this.desc = "(Lcom/mojang/minecraft/level/Level;FFF)V";
+                        final List<InnerClassPatcher.InnerClassConfiguration> minecraftClass = this.inner("com/mojang/minecraft/l");
+
+                        minecraftClass.add(new InnerClassPatcher.InnerClassConfiguration() {
+                            {
+                                this.name = "com/mojang/minecraft/Minecraft$OS";
+                                this.outerName = "com/mojang/minecraft/l";
+                                this.innerName = "OS";
+                                this.access = ACC_PUBLIC;
+                            }
+                        });
+                        minecraftClass.add(new InnerClassPatcher.InnerClassConfiguration() {
+                            {
+                                this.name = "com/mojang/minecraft/f";
+                                this.access = ACC_PUBLIC;
+                            }
+                        });
                     }
-                });
-                this.nameToInner.put("com/mojang/minecraft/mob/Skeleton$1", new InnerClassPatcher.InnerClassConfiguration() {
+
+                    // Fix Minecraft$OS
                     {
-                        this.name = "<init>";
-                        this.desc = "(Lcom/mojang/minecraft/level/Level;FFF)V";
+                        final List<InnerClassPatcher.InnerClassConfiguration> minecraftOsClass = this.inner("com/mojang/minecraft/Minecraft$OS");
+
+                        minecraftOsClass.add(new InnerClassPatcher.InnerClassConfiguration() {
+                            {
+                                this.name = "com/mojang/minecraft/Minecraft$OS";
+                                this.outerName = "com/mojang/minecraft/l";
+                                this.innerName = "OS";
+                                this.access = ACC_PUBLIC;
+                            }
+                        });
                     }
-                });*/
-                this.nameToInner.put("com/mojang/minecraft/mob/Sheep$1", new InnerClassPatcher.InnerClassConfiguration() {
+
+                    // Fix switch statement up
                     {
-                        this.name = "<init>";
-                        this.desc = "(Lcom/mojang/minecraft/level/Level;FFF)V";
+                        final List<InnerClassPatcher.InnerClassConfiguration> minecraftSwitchClass = this.inner("com/mojang/minecraft/f");
+
+                        this.outerConfig.put("com/mojang/minecraft/f", new InnerClassPatcher.OuterClassConfiguration() {
+                            {
+                                this.owner = "com/mojang/minecraft/l";
+                            }
+                        });
+
+                        minecraftSwitchClass.add(new InnerClassPatcher.InnerClassConfiguration() {
+                            {
+                                this.name = "com/mojang/minecraft/f";
+                                this.access = ACC_PUBLIC;
+                            }
+                        });
+                        minecraftSwitchClass.add(new InnerClassPatcher.InnerClassConfiguration() {
+                            {
+                                this.name = "com/mojang/minecraft/Minecraft$OS";
+                                this.outerName = "com/mojang/minecraft/l";
+                                this.innerName = "OS";
+                                this.access = ACC_PUBLIC;
+                            }
+                        });
                     }
-                });
-                this.nameToInner.put("com/mojang/minecraft/player/Player$1", new InnerClassPatcher.InnerClassConfiguration() {
+                }
+
+                // MinecraftApplet Class Fixes
+                {
+                    // Fix MinecraftApplet
                     {
-                        this.name = "<init>";
-                        this.desc = "(Lcom/mojang/minecraft/level/Level;)V";
+                        this.inner("com/mojang/minecraft/MinecraftApplet").add(new InnerClassPatcher.InnerClassConfiguration() {
+                            {
+                                this.name = "com/mojang/minecraft/MinecraftApplet$1";
+                            }
+                        });
                     }
-                });
-                this.nameToInner.put("com/mojang/minecraft/MinecraftApplet$1", new InnerClassPatcher.InnerClassConfiguration() {
+
+                    // Fix anonymous class
                     {
-                        this.name = "init()";
-                        this.desc = "()V";
+                        this.outerConfig.put("com/mojang/minecraft/MinecraftApplet$1", new InnerClassPatcher.OuterClassConfiguration() {
+                            {
+                                this.owner = "com/mojang/minecraft/MinecraftApplet";
+                                this.name = "init()";
+                                this.desc = "()V";
+                            }
+                        });
                     }
-                });
+                }
             }
         });
 

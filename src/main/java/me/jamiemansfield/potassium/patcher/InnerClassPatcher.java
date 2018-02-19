@@ -32,25 +32,22 @@
 
 package me.jamiemansfield.potassium.patcher;
 
-import static org.objectweb.asm.Opcodes.ACC_ENUM;
-import static org.objectweb.asm.Opcodes.ACC_SYNTHETIC;
 import static org.objectweb.asm.Opcodes.ASM5;
 
 import com.google.common.io.ByteStreams;
-import me.jamiemansfield.lorenz.model.jar.Signature;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.tree.ClassNode;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.jar.JarOutputStream;
@@ -58,7 +55,7 @@ import java.util.stream.Collectors;
 
 public class InnerClassPatcher extends ClassVisitor {
 
-    public static final void patchJar(final Path inputJar, final Path outputJar, final Configuration configuration) {
+    public static void patchJar(final Path inputJar, final Path outputJar, final Configuration configuration) {
         try (final JarFile jarFile = new JarFile(inputJar.toFile())) {
             try (final JarOutputStream jos = new JarOutputStream(Files.newOutputStream(outputJar))) {
                 for (final JarEntry entry : jarFile.stream().collect(Collectors.toSet())) {
@@ -92,9 +89,6 @@ public class InnerClassPatcher extends ClassVisitor {
     private final Configuration configuration;
 
     private String name = "";
-    private boolean isInnerClass = false;
-    private boolean isEnum = false;
-    private boolean hasOuterClass = false;
 
     public InnerClassPatcher(final ClassVisitor cv, final Configuration configuration) {
         super(ASM5, cv);
@@ -104,65 +98,27 @@ public class InnerClassPatcher extends ClassVisitor {
     @Override
     public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
         this.name = name;
-        this.isInnerClass = name.contains("$");
-        this.isEnum = (access & ACC_ENUM) != 0;
 
         // Call super
         super.visit(version, access, name, signature, superName, interfaces);
     }
 
     @Override
-    public void visitOuterClass(String owner, String name, String desc) {
-        this.hasOuterClass = true;
-
-        // Call super
-        super.visitOuterClass(owner, name, desc);
-    }
-
-    @Override
-    public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
-        final boolean isConstructor = Objects.equals("<init>", name);
-        final boolean isSynthetic = (access & ACC_SYNTHETIC) == 0;
-
-        // Using the synthetic <init> method, I can automatically populate
-        // the nameToOuter configurations (and innerConfig.owner) using the
-        // first parameter
-        // This is unless the class is static or an enum
-        if (this.isInnerClass && !this.isEnum && isConstructor && isSynthetic) {
-            final String type = Signature.compile(desc).getParamTypes().get(0).getObfuscated();
-            final String className = type.substring(1, type.length() - 1);
-            this.configuration.nameToOuter.put(className, new OuterClassConfiguration() {
-                {
-                    this.inner = InnerClassPatcher.this.name;
-                }
-            });
-            if (!this.configuration.nameToInner.containsKey(this.name)) {
-                this.configuration.nameToInner.put(this.name, new InnerClassConfiguration());
-            }
-            this.configuration.nameToInner.get(this.name).owner = className;
-        }
-
-        // Call super
-        return super.visitMethod(access, name, desc, signature, exceptions);
-    }
-
-    @Override
     public void visitEnd() {
-        if (this.isInnerClass && !this.hasOuterClass && this.configuration.nameToInner.containsKey(this.name)) {
-            final InnerClassConfiguration classConfig = this.configuration.nameToInner.get(this.name);
-            this.visitOuterClass(classConfig.owner, classConfig.name, classConfig.desc);
-            this.visitInnerClass(this.name, null, null, 0);
+        // Add inner class references
+        if (this.configuration.innerConfigs.containsKey(this.name)) {
+            final List<InnerClassConfiguration> configs = this.configuration.innerConfigs.get(this.name);
+
+            for (final InnerClassConfiguration config : configs) {
+                this.visitInnerClass(config.name, config.outerName, config.innerName, config.access);
+            }
         }
 
-        if (this.configuration.nameToOuter.containsKey(this.name)) {
-            final OuterClassConfiguration classConfiguration = this.configuration.nameToOuter.get(this.name);
-            this.visitInnerClass(classConfiguration.inner, null, null, 0);
+        // Add outer class references
+        if (this.configuration.outerConfig.containsKey(this.name)) {
+            final OuterClassConfiguration config = this.configuration.outerConfig.get(this.name);
+            this.visitOuterClass(config.owner, config.name, config.desc);
         }
-
-        // Reset values
-        this.isInnerClass = false;
-        this.isEnum = false;
-        this.hasOuterClass = false;
 
         // Call super
         super.visitEnd();
@@ -170,22 +126,32 @@ public class InnerClassPatcher extends ClassVisitor {
 
     public static class Configuration {
 
-        public Map<String, OuterClassConfiguration> nameToOuter = new HashMap<>();
-        public Map<String, InnerClassConfiguration> nameToInner = new HashMap<>();
+        public Map<String, List<InnerClassConfiguration>> innerConfigs = new HashMap<>();
+        public Map<String, OuterClassConfiguration> outerConfig = new HashMap<>();
 
-    }
-
-    public static class OuterClassConfiguration {
-
-        public String inner;
+        public List<InnerClassConfiguration> inner(final String name) {
+            if (!this.innerConfigs.containsKey(name)) {
+                this.innerConfigs.put(name, new ArrayList<>());
+            }
+            return this.innerConfigs.get(name);
+        }
 
     }
 
     public static class InnerClassConfiguration {
 
-        public String owner;
         public String name;
-        public String desc;
+        public String outerName = null;
+        public String innerName = null;
+        public int access = 0;
+
+    }
+
+    public static class OuterClassConfiguration {
+
+        public String owner;
+        public String name = null;
+        public String desc = null;
 
     }
 
